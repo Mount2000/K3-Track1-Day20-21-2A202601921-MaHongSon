@@ -266,22 +266,66 @@ Format: Tên tiêu chí · định nghĩa 1 câu · tiêu chí Yes/No quan sát 
 
 ## 4. Routing Map
 
-> Cái gì kiểm bằng code, cái gì cần LLM judge, cái gì phải đến tay expert. Không phải
-> tiêu chí nào cũng cần LLM.
+> Cái gì kiểm bằng code, cái gì cần LLM judge, cái gì phải đến tay expert. Không phải tiêu chí nào cũng cần LLM.
 
-- Với từng tiêu chí trong rubric (mục 3 ở trên): kiểm tra bằng **code** (deterministic), **LLM
-  judge**, hay **con người**? Vì sao?
-- Tiêu chí nào bạn ban đầu định cho LLM judge chấm nhưng hoá ra code kiểm được rẻ hơn
-  (ví dụ: output có parse được JSON không, sources có đủ doc_id hợp lệ không)?
-- Tiêu chí nào LLM judge **không tin được** và phải giữ cho con người?
-- Judge prompt của bạn (`eval/judge_prompt.md`) chấm tiêu chí nào? Nhiệt độ, model judge là
-  gì, vì sao chọn khác model của tutor?
+### 1. Phân loại lỗi: Spec Gap vs Generalization Gap (Diagnostic & Backlog)
 
-### Bảng routing
+Khi hệ thống gặp lỗi hoặc output không như ý, cần phân biệt rõ bản chất để có hành động chính xác thay vì vội vàng đẩy mọi thứ vào eval loop:
 
-| Tiêu chí | Code | LLM judge | Con người | Lý do |
+| Loại lỗi | Bản chất | Cơ chế xử lý | Ví dụ thực tế từ đợt test v1 | Hành động (Action Backlog) |
 |---|---|---|---|---|
-| | | | | |
+| **Spec Gap** *(Khoảng trống đặc tả)* | Yêu cầu/kỳ vọng **chưa được mô tả rõ ràng** trong System Prompt hoặc Output Contract, khiến model tự suy diễn hoặc dùng sai quy ước. | **Sửa Prompt / Contract trực tiếp** (ghi vào backlog), fix ngay lập tức, chưa cần tốn chi phí eval đo lường. | - `sc-03`: Model dùng key `"text"` thay vì `"quote"` trong `sources`.<br>- `sc-11`: Model in reasoning tự do trước JSON và thiếu dấu phẩy.<br>- `sc-10`: Chưa có rule bắt buộc gọi tên slide (`s53`) ở câu mở đầu khi nhận deixis context. | **Backlog Prompt Fix:**<br>1. Định nghĩa strict JSON Schema với ví dụ mẫu TypeScript.<br>2. Thêm rule: "Chỉ trả về JSON object thuần, cấm reasoning ngoài JSON".<br>3. Thêm rule Deixis: "Mở đầu bằng 'Theo slide sXX...' khi có context". |
+| **Generalization Gap** *(Khoảng trống khái quát)* | Yêu cầu **đã được đặc tả rõ** trong prompt nhưng model vẫn làm sai do ngữ cảnh mới lạ, phân phối phức tạp, hoặc bẫy adversarial tinh vi. | **Thiết kế Eval Loop đa tầng** (Code check + LLM judge + Human audit) để đo lường, track regression và gate trước khi ship. | - `sc-22`: Bẫy hallucination với tiền đề sai (F3-score BLEU/ROUGE).<br>- `sc-16`: So sánh tổng hợp đa tài liệu (Hamel vs Anthropic vs Chip Huyen) không bịa chi tiết.<br>- `sc-20`: Phòng thủ prompt injection / system leak. | **Eval & Guardrail Action:**<br>1. Xây dựng bộ test challenge 22 câu phủ kín góc biên.<br>2. Thiết lập LLM Judge chấm semantic groundedness.<br>3. Giám sát tỷ lệ lọt bẫy (leak rate / hallucination rate). |
+
+---
+
+### 2. Phân công 4 Làn Đánh giá (Evaluation Routing Lanes)
+
+| Làn đánh giá | Định nghĩa & Phạm vi áp dụng | Ưu điểm cốt lõi | Chi phí & Tốc độ |
+|---|---|---|---|
+| **1. Code Check** *(Deterministic)* | Viết được thành quy tắc logic bằng code Python: Schema hợp lệ, doc_id tồn tại trong manifest, quote nằm nguyên văn trong section đã trích dẫn. | Khách quan 100%, không bị hallucination của judge, chạy lại vô hạn lần mà không tốn chi phí. | Chi phí: **$0.00**<br>Tốc độ: **< 5ms/câu** |
+| **2. LLM Judge** *(Semantic Evaluation)* | Đánh giá ngữ nghĩa phức tạp: Câu trả lời có được tài liệu hỗ trợ (groundedness), từ chối đúng scope khi gặp bẫy tiền đề sai, bóc tách deixis hợp lý. | Hiểu ngữ cảnh sâu, tự động hóa được các bài toán đọc hiểu văn bản mà code không thể viết rule. | Chi phí: **~$0.0003/câu**<br>Tốc độ: **~1.5s/câu** |
+| **3. LLM Assist** *(Human-in-the-loop)* | Máy quét trước, gom bằng chứng và đánh dấu các ca nghi vấn (flag anomalies); chuyên gia con người chỉ cần nhìn bằng chứng để ra verdict. | Tiết kiệm 80% thời gian của con người, tránh hiện tượng mệt mỏi/thiếu tập trung khi review lượng lớn dữ liệu. | Chi phí: **Thấp**<br>Tốc độ: **Bán tự động** |
+| **4. Expert Review** *(Human Gold Standard)* | Dành riêng cho các tiêu chí **High-stakes** (rủi ro an toàn, gian lận học tập, leak prompt) hoặc các tiêu chí chất lượng sư phạm mà team chưa thống nhất được định nghĩa đóng. | Đảm bảo chuẩn mực an toàn cao nhất, định hình "chuẩn vàng" (ground truth) để hiệu chỉnh lại LLM judge. | Chi phí: **Cao nhất**<br>Tốc độ: **Chậm nhất** |
+
+---
+
+### 3. Phân tích Kỹ thuật & Thiết kế Judge
+
+- **Tiêu chí định giao cho LLM Judge nhưng chuyển sang Code Check:**
+  - `schema_validity`: JSON parse được, đủ 4 trường `scope`, `answer`, `sources`, `followup_questions`.
+  - `citation_exists`: Kiểm tra cặp `(doc_id, section_id)` có nằm trong danh mục 18 tài liệu hợp lệ không (tra cứu tập hợp $O(1)$).
+  - `quote_verbatim`: Kiểm tra chuỗi token của `quote` có phải là chuỗi con (token subsequence) trong section gốc hay không.
+  - *Lợi ích:* Tiết kiệm 100% chi phí token cho các lỗi cú pháp và triệt tiêu hoàn toàn rủi ro LLM judge tự "bịa" ra kết quả chấm format.
+
+- **Tiêu chí LLM Judge không đáng tin và phải giữ cho Con người (hoặc LLM Assist):**
+  - `pedagogical_clarity_structure` (Tính sư phạm, độ dễ tiếp thu): LLM judge mắc lỗi **Length Bias** (thiên kiến câu trả lời dài) và khó cảm nhận được mức độ "ngợp thông tin" của học viên mới.
+  - `valuable_followup` (Giá trị sư phạm của câu hỏi mở): LLM judge chỉ kiểm tra được câu hỏi có đúng ngữ pháp hay không, chứ không đánh giá được câu hỏi có thực sự kích thích tư duy giải quyết vấn đề của PM hay không.
+
+- **Thiết kế Judge Prompt & Cấu hình Kỹ thuật:**
+  - **File prompt:** [`eval/judge_prompt.md`](file:///home/thao-pham/VIN_AI/LAB/K3-Track1-Day20-21-2A202601921-MaHongSon/eval/judge_prompt.md) — tập trung duy nhất vào tiêu chí cốt lõi: **GROUNDEDNESS** (tính bám sát nguồn, zero-hallucination, phát hiện đúng scope).
+  - **Tutor Model:** `deepseek/deepseek-v4-flash`
+  - **Judge Model:** `gemini/gemini-3.5-flash-lite` (hoặc `openai/gpt-4o-mini`)
+  - **Lý do chọn model khác nhau:** 
+    1. *Tránh Self-Preference Bias:* Model thường có xu hướng chấm điểm cao hơn cho câu trả lời do chính nó sinh ra.
+    2. *Tránh Correlated Blindspots:* Hai model khác họ kiến trúc và dữ liệu pre-train sẽ không bị trùng lặp các điểm mù tri thức (blind spots).
+  - **Nhiệt độ (Temperature):** Cố định `temperature = 0.0` để đảm bảo tính tái lập (reproducibility) 100% giữa các lần chạy eval.
+
+---
+
+### 4. Bảng Routing Map
+
+| Tiêu chí | Code Check | LLM Judge | LLM Assist | Expert | Lý do phân công (1 dòng cốt lõi) |
+|---|:---:|:---:|:---:|:---:|---|
+| **1. `schema_validity`** | **CHÍNH** | — | — | — | Quy tắc cú pháp JSON và tên trường là rule nhị phân cứng, code bắt chính xác 100% với chi phí 0đ. |
+| **2. `citation_exists`** | **CHÍNH** | — | — | — | Tra cứu `doc_id#section_id` trong danh mục tài liệu có sẵn bằng hash lookup, không cần suy luận ngữ nghĩa. |
+| **3. `quote_verbatim`** | **CHÍNH** | — | — | — | So khớp chuỗi token giữa quote và văn bản gốc bằng thuật ngữ chuỗi con, loại bỏ hoàn toàn quote bịa đặt. |
+| **4. `groundedness`** | — | **CHÍNH** | Audit 10% | — | Cần đọc hiểu ngữ nghĩa để xác minh câu trả lời có được các đoạn trích hỗ trợ logic hay không. |
+| **5. `scope_correctness`** | — | **CHÍNH** | — | — | LLM Judge nhận diện chính xác ý định câu hỏi in-scope vs out-of-scope/adversarial dựa trên ngữ cảnh bài học. |
+| **6. `deixis_resolution`** | Hỗ trợ (slide id) | **CHÍNH** | — | — | Code kiểm tra có `metadata.slide` không; LLM Judge xác minh nội dung câu trả lời có khớp trọng tâm slide đó. |
+| **7. `adversarial_defense`** | — | **CHÍNH** | — | **Gate (High-Stakes)** | Rủi ro rò rỉ prompt / gian lận thi cử là cực kỳ nghiêm trọng, cần LLM judge quét 100% và Expert audit định kỳ. |
+| **8. `pedagogical_clarity`** | Hỗ trợ (đếm từ) | — | **CHÍNH** | — | Code kiểm tra giới hạn từ (<600 từ); LLM Assist trích xuất cấu trúc để con người duyệt nhanh tính dễ hiểu. |
+| **9. `valuable_followup`** | Hỗ trợ (đếm số câu) | — | **CHÍNH** | — | Code đếm đúng 3 câu hỏi; con người duyệt nhanh xem câu hỏi có giá trị sư phạm mở rộng hay chỉ là câu hỏi sáo rỗng. |
 
 ---
 
