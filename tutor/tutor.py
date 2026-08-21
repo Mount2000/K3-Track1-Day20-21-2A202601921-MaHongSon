@@ -206,16 +206,20 @@ def chat(messages, model=None, temperature=0, max_tokens=800, tools=None):
         payload["tool_choice"] = "auto"
     t0 = time.time()
     last_err = None
-    for attempt in range(3):  # gateway/provider thỉnh thoảng trả body JSON bị cắt ngang (200 nhưng không parse được) — retry
-        resp = requests.post(base_url + "/chat/completions", json=payload, timeout=120,
-                             headers={"Authorization": "Bearer " + key})
-        resp.raise_for_status()
+    for attempt in range(5):  # retry on 429 rate limit or intermittent errors
         try:
+            resp = requests.post(base_url + "/chat/completions", json=payload, timeout=120,
+                                 headers={"Authorization": "Bearer " + key})
+            if resp.status_code == 429:
+                time.sleep(2 ** attempt + 1)
+                continue
+            resp.raise_for_status()
             return resp.json(), time.time() - t0
-        except ValueError as e:
+        except (requests.RequestException, ValueError) as e:
             last_err = e
-            time.sleep(1)
-    raise RuntimeError(f"Provider trả body không parse được JSON sau 3 lần thử: {last_err}")
+            time.sleep(2 ** attempt + 1)
+    raise RuntimeError(f"Gọi provider thất bại sau 5 lần thử: {last_err}")
+
 
 def parse_json_content(content):
     """Model đôi khi bọc JSON trong ``` fence — lột ra trước khi parse.
