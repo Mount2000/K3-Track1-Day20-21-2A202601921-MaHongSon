@@ -1,121 +1,115 @@
-# K3 Track 1 · Day 20–21 — AI Evaluation (eval-kit)
+# K3 Track 1 · Day 20–21 — AI Evaluation Capstone (eval-kit)
 
-Repo làm bài capstone **AI Evaluation** của case **VLearn AI Tutor** — trợ giảng trả lời
-câu hỏi học viên, chỉ dựa trên tài liệu khóa học, output là JSON
-`{scope, answer, sources, followup_questions}`.
+Repo làm bài capstone **AI Evaluation** của case **VLearn AI Tutor** — trợ giảng trả lời câu hỏi học viên, chỉ dựa trên tài liệu khóa học, output là JSON `{scope, answer, sources, followup_questions}`.
 
-Đây là **môi trường chính của bài lab**: tutor thật (system prompt + tool-calling
-`kb_search`), corpus 18 tài liệu, vòng eval đầy đủ — chạy bằng Python trên máy bạn, dùng
-**API key của chính bạn** (OpenAI / DeepSeek / Gemini / Anthropic / OpenRouter).
-README này là hướng dẫn duy nhất: bước nào gõ lệnh gì, file nào ra file nào.
+---
 
-> **File lab tổng (kim chỉ nam, có timeline + rubric chấm):** đọc kèm
-> `day21-lab-ai-evaluation-capstone.md` do lớp phát.
+## 📌 Thông Tin Cá Nhân & Nhóm
 
-## Cấu trúc repo
+- **Tên bài thi / Case:** VLearn AI Tutor Evaluation (eval-kit)
+- **Khóa học:** AI Engineer K3 — Track 1
+- **Danh sách thành viên nhóm:**
+  1. **Mai Hồng Sơn** (Trưởng nhóm) — MHV: `2A202601921` — GitHub: [`@Mount2000`](https://github.com/Mount2000)
+  2. **Nguyễn Tuấn Vũ** (Thành viên) — MHV: `2A202601845` — GitHub: [`@vunt2`](https://github.com/vunt2)
+
+---
+
+## 👥 Phân Công Nhiệm Vụ & Đóng Góp
+
+| Mai Hồng Sơn (`2A202601921`)<br>*(Trưởng nhóm)* | Nguyễn Tuấn Vũ (`2A202601845`)<br>*(Thành viên)* |
+|---|---|
+| • Xây dựng bộ kịch bản dataset độc lập ban đầu.<br>• Thống nhất chốt bộ dữ liệu chuẩn 22 câu (`dataset-v1.jsonl`).<br>• Chạy mô hình Tutor sinh kết quả `results-v1.jsonl` và giao diện `report.html`.<br>• Thực hiện gán nhãn độc lập 22 kịch bản (`labels-Son.csv`).<br>• Đo độ đồng thuận (`eval/agreement.py`), thảo luận giải quyết các ca bất đồng và chốt Nhãn Vàng (`labels.csv`).<br>• Xây dựng Rubric checklist Yes/No và Routing Map 4 làn trong `REPORT.md`.<br>• Thiết kế và tinh chỉnh các phiên bản Prompt cho Judge (`judge-prompt-v1/v2/v3`).<br>• Kiểm thử làn Code checks (`code_checks.py`) và chạy calibration LLM Judge đo Confusion Matrix.<br>• Phân tích Scorecard theo lát cắt, mổ xẻ failure traces và hoàn thiện Báo cáo tổng kết PM Verdict trong `REPORT.md`. | • Xây dựng bộ kịch bản dataset độc lập ban đầu, thiết kế khung User Input Grid.<br>• Thống nhất chốt bộ dữ liệu chuẩn 22 câu (`dataset-v1.jsonl`).<br>• Thiết lập hạ tầng Braintrust Tracing (`vunt2/p/My Project`).<br>• Thực hiện gán nhãn độc lập 22 kịch bản (`labels-vu.csv`), ghi nhận các ca bất đồng về schema và deixis.<br>• Thảo luận giải quyết các ca bất đồng và chốt Nhãn Vàng (`labels.csv`).<br>• Phân tích cụm bất đồng để chuẩn hóa Rubric và hoàn thiện Routing Map 4 làn trong `REPORT.md`.<br>• Thực thi và xác nhận 44 unit tests offline (`tests/test_eval_kit.py`).<br>• Phân tích pattern lệch của Judge và đề xuất đòn bẩy kỹ thuật xử lý lỗi định dạng JSON.<br>• Đồng bộ nhật ký sử dụng AI (`ai-support-log.md`) và hoàn thiện Báo cáo tổng kết PM Verdict trong `REPORT.md`. |
+
+---
+
+## 🎯 Tóm Tắt Quyết Định Chất Lượng (Executive Verdict Summary)
+
+- **Quyết định Release:** **HOLD (TẠM HOÃN PHÁT HÀNH — MỞ KHÓA TRONG 24H)**
+- **Lý do từ chối phát hành ngay:**
+  - Hệ thống đạt chất lượng xuất sắc ở các tiêu chí cốt lõi: **100% Chống Hallucination / Factuality**, **100% An toàn Sư phạm / Từ chối Jailbreak & Cheat**, và **100% Trích dẫn ID tồn tại thật**.
+  - Tuy nhiên, sản phẩm **vi phạm 2 tiêu chí Blocker P0 về Hợp đồng Dữ liệu (System Contract)**:
+    1. `schema_valid` đạt **95.5% < 100%** (Lỗi thiếu dấu phẩy trong mảng JSON tại `sc-11-amb-uig-bien` làm sập parser frontend).
+    2. `sources_fields` đạt **90.9% < 95%** (Lỗi dùng sai key `"text"` thay vì `"quote"` tại `sc-03-in-eval-gap`).
+- **Kế hoạch đòn bẩy 24 giờ:**
+  1. *Code Layer ($0, 2h):* Tích hợp Pydantic Schema Validator & Middleware Auto-repair (tự động chèn dấu phẩy mảng JSON bị thiếu) trong `tutor/`.
+  2. *Prompt Layer ($0, 30m):* Siết System Prompt cấm tuyệt đối dùng key `"text"` trong `sources`.
+  3. *Release Gate:* Chạy lại bộ 22 regression test, ngay khi `schema_valid` đạt 100% sẽ chuyển trạng thái sang **SHIP WITH CONDITIONS**.
+
+---
+
+## 📂 Cấu Trúc Repo & Minh Chứng Nộp Bài
 
 | Thư mục / file | Vai trò |
 |---|---|
+| `README.md` | **Báo cáo tổng quan** — Thông tin cá nhân/nhóm, bảng phân công nhiệm vụ chi tiết theo commit, tóm tắt quyết định |
+| `ai-support-log.md` | **Nhật ký AI** — Ghi lại trung thực các bước dùng AI, cách kiểm chứng và các gợi ý đã bác bỏ |
 | `tutor/` | **Sản phẩm đang được đánh giá** — tutor thật (`tutor.py`: system prompt + tool-calling `kb_search`, BM25 retrieval) và `corpus/` 18 tài liệu nguồn + `manifest.json` (địa chỉ nguồn: `doc_id#section_id`) |
-| `eval/` | **Bộ máy chấm** — code chạy & phân tích eval + tracking: `run_eval.py`, `code_checks.py`, `judge.py`, `agreement.py`, `report.py`, `tracing.py`, kèm `judge_prompt.md` (prompt judge — **file bạn sẽ sửa nhiều nhất khi calibrate**) |
-| `deliverables/` | **Khung bài nộp** — report log A→Z, lock input/output/quyết định từng bước: `REPORT.md` một file gồm 7 mục quyết định theo phase (1 Input Grid … 7 Verdict) + `evidence/` chứa data thô dẫn chứng (xem README trong đó) |
-| `tests/` | `test_eval_kit.py` — 44 test offline (không tốn API), chạy trước khi làm bất cứ thứ gì |
-| `data/` | File mẫu: `dataset.example.jsonl` (5 câu đủ loại: in-scope, out-of-scope, mơ hồ, xin đáp án) và `labels.example.csv` (format nhãn người) |
-| root | File làm việc (scratch) bạn sinh ra khi chạy: `dataset.jsonl`, `results.jsonl`, `verdicts.jsonl`, `labels.csv`, `report.html` (đã gitignore, không commit) |
+| `eval/` | **Bộ máy chấm** — code chạy & phân tích eval + tracking: `run_eval.py`, `code_checks.py`, `judge.py`, `agreement.py`, `report.py`, `tracing.py`, kèm `judge_prompt.md` |
+| `deliverables/` | **Khung bài nộp** — report log A→Z: `REPORT.md` (7 mục quyết định theo phase) + `evidence/` chứa data thô dẫn chứng |
+| `deliverables/evidence/` | **Data thô minh chứng** — `dataset-v1.jsonl`, `results-v1.jsonl`, `labels.csv`, `labels-Son.csv`, `labels-vu.csv`, `judge-prompt-v1/v2/v3.md`, `verdicts-v1/v2/v3.jsonl`, `braintrust-link.md` |
+| `tests/` | `test_eval_kit.py` — 44 test offline (không tốn API), chạy kiểm thử toàn bộ hệ thống |
+| `data/` | File mẫu: `dataset.example.jsonl` và `labels.example.csv` |
 
-**Mọi lệnh đều chạy từ root repo** (thư mục chứa README này). Luồng làm việc: file
-scratch sinh ra ở root → chốt một vòng thì copy vào `deliverables/evidence/`, đặt tên
-theo version (`results-v1.jsonl`, `verdicts-v2.jsonl`...), không ghi đè vòng cũ.
+**Mọi lệnh đều chạy từ root repo** (thư mục chứa README này). Luồng làm việc: file scratch sinh ra ở root → chốt một vòng thì copy vào `deliverables/evidence/`, đặt tên theo version (`results-v1.jsonl`, `verdicts-v2.jsonl`...), không ghi đè vòng cũ.
 
-## Quickstart (3 phút)
+---
+
+## 🚀 Quickstart (3 phút)
 
 ```bash
-pip install -r requirements.txt        # 1. cài đặt (chỉ cần requests; braintrust/langsmith để tracing)
-cp .env.example .env                   # 2. điền API key của provider bạn dùng (+ BRAINTRUST_API_KEY hoặc LANGSMITH_API_KEY để log trace)
-cp data/dataset.example.jsonl dataset.jsonl
-python3 tests/test_eval_kit.py         # 3. 44 test offline phải sạch hết
-python3 eval/run_eval.py                # 4. chạy tutor trên dataset -> results.jsonl
-python3 eval/report.py && open report.html   # 5. xem kết quả, gán nhãn
+pip install -r requirements.txt        # 1. Cài đặt thư viện
+cp .env.example .env                   # 2. Điền API key (OpenAI / DeepSeek / Gemini / Anthropic + BRAINTRUST_API_KEY)
+python tests/test_eval_kit.py          # 3. Chạy 44 test offline (phải pass 100%)
+python eval/code_checks.py             # 4. Chạy làn code checks trên results.jsonl
+python eval/agreement.py deliverables/evidence/labels-Son.csv deliverables/evidence/labels-vu.csv # 5. Đo độ đồng thuận Human Baseline
+python eval/judge.py                   # 6. Chạy LLM Judge tự động chấm theo rubric
+python eval/report.py                  # 7. Sinh dashboard report.html trực quan
 ```
 
-Gợi ý: nếu test fail ngay tầng 2 (corpus), gần như chắc chắn bạn đang chạy sai thư mục —
-`cd` vào đúng root repo rồi chạy lại.
+---
 
-## Làm bài theo 6 phase — bước nào chạy gì?
+## 📖 Làm Bài Theo 6 Phase — Bước Nào Chạy Gì?
 
 | Phase (theo file lab tổng) | Làm ở đâu | Trong repo này chạy gì |
 |---|---|---|
 | **P1. Thiết kế coverage** — chọn dimensions, tổ hợp, sinh câu hỏi | Giấy/sheet + AI chat | Chưa cần repo. Kết quả: viết vào `dataset.jsonl` (format xem `data/dataset.example.jsonl`, nhớ field `metadata.slide`) |
-| **P2. Human baseline** — chạy dataset, chấm tay | Repo | `python3 eval/run_eval.py` → `python3 eval/report.py` → mở `report.html` gán nhãn → Export `labels-<tên>.csv` → `python3 eval/agreement.py labels-*.csv` đo đồng thuận |
+| **P2. Human baseline** — chạy dataset, chấm tay | Repo | `python eval/run_eval.py` → `python eval/report.py` → mở `report.html` gán nhãn → Export `labels-<tên>.csv` → `python eval/agreement.py labels-*.csv` đo đồng thuận |
 | **P3. Rubric + routing** | Thảo luận nhóm | Không chạy repo. Viết vào mục 3 (Rubric v1) và mục 4 (Routing Map) trong `deliverables/REPORT.md` |
-| **P4. Scale & calibrate judge** | Repo | `python3 eval/code_checks.py` (làn code) → sửa `eval/judge_prompt.md` → `python3 eval/judge.py` → đọc confusion matrix + % agreement. Sửa ít một thứ, chạy lại — mỗi vòng copy `eval/judge_prompt.md` + `verdicts.jsonl` ra `deliverables/evidence/` |
+| **P4. Scale & calibrate judge** | Repo | `python eval/code_checks.py` (làn code) → sửa `eval/judge_prompt.md` → `python eval/judge.py` → đọc confusion matrix + % agreement. Sửa ít một thứ, chạy lại — mỗi vòng copy `eval/judge_prompt.md` + `verdicts.jsonl` ra `deliverables/evidence/` |
 | **P5. Đọc kết quả, đặt ngưỡng** | Repo | `results.jsonl` có sẵn latency/tokens/cost từng câu; `report.html` để đọc theo slice |
 | **P6. Verdict + report** | Viết trong `deliverables/` | Điền mục 6 (Scorecard & Gate) và mục 7 (Verdict) trong `deliverables/REPORT.md` |
 
-**Nguyên tắc nộp bài:** mỗi bước phải nộp đủ **đầu vào + đầu ra (data thô) + quyết định
-kèm vì sao**. Cấu trúc thư mục nộp và checklist: [deliverables/README.md](deliverables/README.md).
+---
 
-**Tracing bắt buộc:** đặt `BRAINTRUST_API_KEY` hoặc `LANGSMITH_API_KEY` trong `.env`
-trước khi chạy — mọi run tutor/judge log thành trace, link project là một phần bài nộp.
-
-## Chi tiết từng lệnh
+## 🛠️ Chi Tiết Từng Lệnh Trong Eval Kit
 
 ```bash
-python3 eval/run_eval.py      # 1. chạy tutor trên dataset.jsonl      -> results.jsonl
-python3 eval/code_checks.py   # 2. làn code: rule thuần Python trên results (không tốn API)
-python3 eval/report.py        # 3. sinh report.html -> mở, gán nhãn người, Export labels.csv
-python3 eval/agreement.py labels-*.csv   # 4. đo đồng thuận giữa các thành viên
-python3 eval/judge.py         # 5. judge chấm theo judge_prompt.md -> verdicts.jsonl + confusion matrix
+python eval/run_eval.py      # 1. Chạy tutor trên dataset.jsonl -> results.jsonl
+python eval/code_checks.py   # 2. Làn code: rule thuần Python trên results (không tốn API)
+python eval/report.py        # 3. Sinh report.html -> mở, gán nhãn người, Export labels.csv
+python eval/agreement.py labels-*.csv   # 4. Đo đồng thuận giữa các thành viên
+python eval/judge.py         # 5. Judge chấm theo judge_prompt.md -> verdicts.jsonl + confusion matrix
 ```
 
-Mỗi lệnh ghi đè file output của nó — muốn giữ vòng cũ, copy file đi trước
-(vd `cp results.jsonl deliverables/evidence/results-v1.jsonl`).
-
-Chỉ chấm vài câu: `python3 eval/judge.py sc-01 sc-03`.
-Chạy dataset khác: `python3 eval/run_eval.py ten-file.jsonl`.
-
-### Bước 1 — `eval/run_eval.py`: tutor thật chạy trên dataset
-
-- Đọc từng dòng `dataset.jsonl`, gọi tutor theo **cơ chế tool-calling thật**:
-  model tự quyết định gọi `kb_search` bao nhiêu lần, với truy vấn nào (xem trong
-  `results.jsonl`, trường `tool_calls`).
+### Bước 1 — `eval/run_eval.py`: Tutor thật chạy trên dataset
+- Đọc từng dòng `dataset.jsonl`, gọi tutor theo **cơ chế tool-calling thật**: model tự quyết định gọi `kb_search` bao nhiêu lần, với truy vấn nào (xem trong `results.jsonl`, trường `tool_calls`).
 - In từng dòng: thời gian, số token, chi phí ước tính. Tổng chi phí in ở cuối.
-- Gợi ý: chạy thử `data/dataset.example.jsonl` (5 câu) trước khi chạy dataset lớn của nhóm.
 
-### Bước 2 — `eval/code_checks.py`: làn code
-
-- 3 rule có sẵn: `schema_valid` (JSON đủ 4 field), `citation_exists` (doc_id/section_id
-  có thật trong corpus), `quote_verbatim` (quote nằm đúng trong section đã cite).
-- Mở `eval/code_checks.py`, thêm 1–2 hàm `check_*` của riêng nhóm cho tiêu chí làn Code.
+### Bước 2 — `eval/code_checks.py`: Làn code
+- Kiểm tra các rule tự động: `schema_valid` (JSON đủ 4 field), `citation_exists` (doc_id/section_id có thật trong corpus), `quote_verbatim` (quote nằm đúng trong section đã cite).
 
 ### Bước 3 — `eval/judge.py`: LLM judge chấm
+- Judge là model KHÁC tutor (mặc định `gemini-3.5-flash-lite` hoặc `gpt-4o-mini`) — tránh tự chấm chéo.
+- Rubric judge nằm trong `eval/judge_prompt.md`.
+- Đối chiếu với `labels.csv` để in ra Confusion Matrix và % Agreement.
 
-- Judge là model KHÁC tutor (mặc định `gpt-4o-mini`) — tránh tự chấm chéo.
-- Rubric judge nằm trong `eval/judge_prompt.md` — **đây là file bạn sẽ sửa nhiều nhất** khi
-  calibrate. Sửa ít một thứ mỗi vòng, chạy lại, so agreement.
-- Chấm một vài câu thôi: `python3 eval/judge.py sc-01 sc-03`.
-- Nếu `labels.csv` đã có nhãn người (export từ report), judge.py in luôn confusion matrix
-  + % agreement — **đây là con số calibration của bạn**.
+### Bước 4 — `eval/report.py`: Nhìn và gán nhãn
+- `report.html` tự chứa mọi dữ liệu: câu hỏi, slide context, câu trả lời, nguồn trích, verdict judge.
+- Bấm pass/fail/uncertain và nhập note ngắn để gán nhãn người.
 
-### Bước 4 — `eval/report.py`: nhìn và gán nhãn
+---
 
-- `report.html` tự chứa mọi dữ liệu: câu hỏi, slide context, câu trả lời, nguồn trích,
-  verdict judge. Bấm pass/fail/uncertain và nhập **note ngắn** (vd tiêu chí gây
-  fail: `fail: citation`) để gán nhãn người (lưu trong trình duyệt).
-- Bấm **Export labels.csv** → lưu đè `labels.csv` → chạy lại `eval/judge.py` để xem agreement.
-
-### Những việc mổ xẻ sâu hơn
-
-| Việc | Làm sao |
-|---|---|
-| Xem tutor gọi `kb_search` với truy vấn gì, bao nhiêu vòng | Mở `results.jsonl`, trường `tool_calls` và `steps` của từng row |
-| Sửa retrieval (BM25, top-k) để thử nghiệm | Sửa `retrieve_corpus()` trong `tutor/tutor.py` |
-| Đọc system prompt thật của tutor | Đầu file `tutor/tutor.py` — biến `SYSTEM_PROMPT` |
-| Chạy judge bằng model khác để so sánh | `EVAL_JUDGE_MODEL=deepseek/deepseek-v4-flash python3 eval/judge.py` |
-| Xem raw output chưa parse (khi JSON vỡ) | `results.jsonl` trường `raw_content`; report.html nút "xem raw" |
-| Test offline toàn bộ pipeline | `python3 tests/test_eval_kit.py` (không tốn API) |
-
-## Chọn model & provider
+## 🤖 Chọn Model & Provider
 
 Model viết dạng `provider/model` — repo gọi **thẳng API chuẩn của từng hãng**:
 
@@ -130,78 +124,46 @@ Model viết dạng `provider/model` — repo gọi **thẳng API chuẩn của 
 | Biến | Mặc định | Ý nghĩa |
 |---|---|---|
 | `EVAL_MODEL` | `deepseek/deepseek-v4-flash` | Model của tutor |
-| `EVAL_JUDGE_MODEL` | `openai/gpt-4o-mini` | Model của judge (nên KHÁC tutor — tránh tự chấm chéo) |
-| `BRAINTRUST_API_KEY` | — | Bật log trace lên Braintrust (bắt buộc một trong hai khi nộp bài) |
-| `LANGSMITH_API_KEY` | — | Bật log trace lên LangSmith (thay cho Braintrust; `LANGCHAIN_API_KEY` cũng được) |
-| `EVAL_BASE_URL` + `EVAL_API_KEY` | — (không đặt = gọi thẳng provider) | Tuỳ chọn: gateway OpenAI-compatible riêng |
+| `EVAL_JUDGE_MODEL` | `gemini/gemini-3.5-flash-lite` / `openai/gpt-4o-mini` | Model của judge (KHÁC tutor — tránh tự chấm chéo) |
+| `BRAINTRUST_API_KEY` | — | Bật log trace lên Braintrust (bắt buộc khi nộp bài) |
+| `LANGSMITH_API_KEY` | — | Bật log trace lên LangSmith |
 
-## Tracing (bắt buộc khi nộp bài)
+---
+
+## 📡 Tracing (Bắt Buộc Khi Nộp Bài)
 
 Mọi run tutor/judge phải được log trace — đây là minh chứng bạn chạy thật.
+- Link project Braintrust: `https://www.braintrust.dev/app/vunt2/p/My%20Project` (lưu tại `deliverables/evidence/braintrust-link.md`).
 
-- **Braintrust:** tạo project (vd `ai-evaluation`) trên braintrust.dev, lấy API key, đặt
-  vào `.env`: `BRAINTRUST_API_KEY=sk-...`. Từ đó `run_eval.py` và `judge.py` tự log mỗi
-  câu thành một trace (input, output, tool calls, tokens, cost).
-- **LangSmith:** tạo project trên smith.langchain.com, lấy API key, đặt vào `.env`:
-  `LANGSMITH_API_KEY=lsv2_pt_...` (tuỳ chọn `LANGSMITH_PROJECT=ai-evaluation`).
-  Code tự nhận backend — không cần sửa gì thêm. Chỉ cần một trong hai.
+---
 
-Khi nộp: ghi link project (Braintrust hoặc LangSmith) vào `deliverables/evidence/braintrust-link.md`.
-
-## Định dạng một dòng dataset
+## 📝 Định Dạng Một Dòng Dataset
 
 ```json
-{"scenario_id": "sc-01-in-judge", "input": "câu hỏi của học viên",
+{"scenario_id": "sc-01-in-calibration", "input": "câu hỏi của học viên",
  "expected_scope": "in_scope", "note": "ghi chú ngắn của nhóm",
- "metadata": {"slide": {"id": "s53", "title": "Pass rate giống nhau — không có nghĩa judge nghĩ giống bạn",
-                        "keyword": "calibration"}}}
+ "metadata": {"slide": {"id": "s51", "title": "Calibration là gì", "keyword": "calibration"}}}
 ```
 
-- `input` là bắt buộc — câu hỏi như học viên thật viết. `scenario_id` là mã duy nhất
-  của row (code cũng chấp nhận `id`, nhưng hãy dùng `scenario_id` cho thống nhất —
-  xem mẫu `data/dataset.example.jsonl`).
-- `expected_scope` / `note` (tuỳ chọn): kỳ vọng in-scope/out-of-scope và ghi chú của nhóm.
-- Các thông tin grid (`dimension_values`, `expected_behavior`, `risk_if_fail`,
-  `set_type`...) đặt trong `metadata` để sau lọc theo slice.
-- `metadata.slide` (khi câu gắn slide) là slide học viên đang xem khi hỏi — đưa vào
-  prompt tutor và cả judge, để câu deixis kiểu "giải thích đoạn này" chấm được đúng
-  bối cảnh. Câu noise/out-of-scope không gắn slide thì bỏ field này.
+---
 
-## Gỡ lỗi nhanh
+## 🔧 Gỡ Lỗi Nhanh
 
 | Triệu chứng | Nguyên nhân thường gặp |
 |---|---|
-| `Chưa có API key...` | Thiếu `.env`, hoặc tên biến sai family (deepseek cần `DEEPSEEK_API_KEY`) |
-| Row có `_parse_error` / `_truncated` | Model trả JSON vỡ (thường do cắt output) — mở `raw_content` xem; đó là một failure mode thật, đáng ghi vào bài |
-| Judge toàn 401 | Sai key cho provider của model judge (xem bảng provider ở trên), hoặc shell đang export sẵn `OPENAI_API_KEY` khác — kiểm tra `env \| grep OPENAI` |
+| `Chưa có API key...` | Thiếu `.env`, hoặc tên biến sai family |
+| Row có `_parse_error` | Model trả JSON vỡ — mở `raw_content` xem; đó là failure mode thật, đáng ghi vào bài |
+| Judge toàn 401 | Sai key cho provider của model judge |
 | Retrieve trượt chủ đề | Câu hỏi quá ngắn/deixis — gắn `metadata.slide` với `keyword` vào row dataset |
 
-## Nộp bài thì lấy gì từ repo?
+---
 
-Quy cách nộp đầy đủ: **[deliverables/README.md](deliverables/README.md)** (đã align với mục 10
-của file lab tổng). Từ repo này, copy sang `deliverables/evidence/` của bài nộp:
+## 📦 Quy Cách Nộp Bài Từ Repo
 
-- `dataset.jsonl` → `deliverables/evidence/dataset-v1.jsonl` — dataset nhóm chốt (đầu vào).
-- `results.jsonl` → `deliverables/evidence/results-v1.jsonl` (v2, v3... mỗi lần chạy lại) — output
-  tutor thật, có cả `tool_calls`, tokens, cost từng câu.
-- `verdicts.jsonl` → `deliverables/evidence/verdicts-v1.jsonl` (v2... từng vòng calibration).
-- `eval/judge_prompt.md` → `deliverables/evidence/judge-prompt-v1.md` (copy MỖI LẦN trước khi sửa).
-- `labels.csv` (export từ report.html) → `deliverables/evidence/labels.csv` — nhãn người.
-- Số liệu agreement/confusion matrix in ra từ `eval/judge.py` → chép vào
-  mục 5 của `deliverables/REPORT.md`.
-
-Nhớ: chạy xong một vòng là copy ngay — cuối buổi mới gom là mất dấu các vòng trước.
-
-## Lưu ý
-
-- Model deepseek v4 được gửi kèm `"thinking": {"type": "disabled"}` (đã xử lý sẵn trong
-  `tutor/tutor.py`) — thiếu nó output sẽ bị reasoning tokens ăn mất.
-- Tutor chạy `max_tokens=2000`: câu dài bị cắt giữa JSON sẽ được đánh dấu
-  `_truncated`/`_parse_error` trong `results.jsonl` — đó là một failure mode thật,
-  đáng ghi vào bài, đừng xoá.
-- Provider thỉnh thoảng trả HTTP 200 nhưng body JSON bị cắt ngang — `chat()` tự retry
-  tối đa 3 lần.
-- `.env` trong repo được nạp **ghi đè** biến shell sẵn có — nếu shell bạn export sẵn
-  `OPENAI_API_KEY` khác thì `.env` vẫn thắng.
-- `report.py` không gọi mạng; `report.html` nhúng sẵn toàn bộ dữ liệu.
-- Giá token dùng để ước tính chi phí nằm trong `eval/run_eval.py` (biến `PRICING`).
+Từ repo này, copy sang `deliverables/evidence/` của bài nộp:
+- `dataset.jsonl` → `deliverables/evidence/dataset-v1.jsonl`
+- `results.jsonl` → `deliverables/evidence/results-v1.jsonl`
+- `verdicts.jsonl` → `deliverables/evidence/verdicts-v1.jsonl` (v2, v3...)
+- `eval/judge_prompt.md` → `deliverables/evidence/judge-prompt-v1.md` (v2, v3...)
+- `labels.csv` → `deliverables/evidence/labels.csv`
+- Số liệu agreement/confusion matrix → chép vào Mục 5 & Mục 7 của `deliverables/REPORT.md`.
